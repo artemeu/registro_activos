@@ -1,0 +1,20 @@
+{
+  "name": "registro-activos",
+  "version": "1.0.0",
+  "description": "Simulador de criptomonedas con backend para guardar historial",
+  "main": "backend/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node backend/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^2.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "mongodb": "^6.18.0"
+  }
+}
