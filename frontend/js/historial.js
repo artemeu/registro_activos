@@ -1,9 +1,17 @@
-// frontend/historial.js
+// =======================
+// Variables globales
+// =======================
 
-// Variable global que guarda todo el historial descargado desde el servidor
+// Guarda todo el historial descargado del backend, con la estructura:
+// { "YYYY-MM-DDTHH:mm": { "Bitcoin": "Sube", "Ethereum": "Baja", ... }, ... }
 let historialGlobal = {};
-// Lista global de activos (criptomonedas, etc.)
+
+// Lista de activos disponibles, se carga desde el backend
 let activos = [];
+
+// =======================
+// Funciones auxiliares
+// =======================
 
 /**
  * Genera un array con las 48 medias horas (intervalos de 30 minutos) de un día,
@@ -24,7 +32,7 @@ const generarHoras = (fechaFiltro = null) => {
     start.setHours(0, 0, 0, 0);
   }
 
-  // Genera 48 timestamps separados por 30 minutos
+  // Genera 48 timestamps separados por 30 minutos (de 00:00 a 23:30)
   for (let i = 0; i < 48; i++) {
     const hora = new Date(start.getTime() + i * 30 * 60000);
     const yy = hora.getFullYear();
@@ -127,6 +135,10 @@ function renderFromData(hist, containerId = 'histContainer') {
   container.appendChild(table);
 }
 
+// =======================
+// Funciones de carga de datos
+// =======================
+
 /**
  * Función que carga la lista de activos desde el backend.
  * Actualiza la variable global 'activos'.
@@ -180,7 +192,10 @@ function aplicarFiltroYRenderear() {
   renderFromData(filtrado);
 }
 
-// Configura los eventos cuando el DOM ya está cargado
+// =======================
+// Eventos al cargar la página
+// =======================
+
 document.addEventListener('DOMContentLoaded', () => {
   // Botón para cargar datos desde servidor
   const btnCargar = document.getElementById('btnCargarServidor');

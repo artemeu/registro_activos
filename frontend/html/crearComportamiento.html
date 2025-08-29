@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Crear Comportamiento</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
+      min-height: 100vh;
+    }
+    .card {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+      border-radius: 1rem;
+    }
+    .form-label {
+      font-weight: 500;
+    }
+    .activo-principal {
+      background: #e0e7ff;
+      border-radius: .5rem;
+      padding: .5rem 1rem;
+      margin-bottom: 1rem;
+      font-weight: 600;
+      color: #3730a3;
+    }
+    .impacto-row {
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: .5rem;
+      margin-bottom: .5rem;
+    }
+    .impacto-row:last-child {
+      border-bottom: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <div class="card p-4">
+          <div class="mb-3 text-end">
+            <a href="../html/index.html" class="btn btn-outline-secondary">
+              <span class="me-2">&#8592;</span> Volver al inicio
+            </a>
+          </div>
+          <h2 class="mb-4 text-center text-primary">Crear nuevo comportamiento</h2>
+          <form id="formComportamiento" class="row g-3">
+            <div class="col-md-6">
+              <label for="activoPrincipal" class="form-label">Activo principal</label>
+              <select id="activoPrincipal" class="form-select" required></select>
+            </div>
+            <div class="col-md-6">
+              <label for="evento" class="form-label">Nombre del evento</label>
+              <input type="text" class="form-control" id="evento" required placeholder="Ej: Rumor de regulación" />
+            </div>
+            <div class="col-md-6">
+              <label for="tipoCambio" class="form-label">¿El activo principal sube o baja?</label>
+              <select id="tipoCambio" class="form-select" required>
+                <option value="">Selecciona...</option>
+                <option value="Sube">Sube</option>
+                <option value="Baja">Baja</option>
+              </select>
+            </div>
+            <div class="col-12" id="impactosContainer" style="display:none;">
+              <div class="activo-principal mb-2">
+                <span id="resumenPrincipal"></span>
+              </div>
+              <label class="form-label">Efecto sobre los otros activos:</label>
+              <div id="impactos"></div>
+            </div>
+            <div class="col-12 text-center">
+              <button type="submit" class="btn btn-primary px-5">Crear comportamiento</button>
+            </div>
+          </form>
+          <div id="mensaje" class="mt-3 text-center"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="../js/crear-comportamiento.js"></script>
+</body>
+</html>
