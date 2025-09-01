@@ -143,7 +143,7 @@ async function registrarConImpactosDesdeJson() {
 
   try {
     // Envía POST al backend para registrar el cambio y sus impactos
-    const res = await fetch('/api/registro', {
+    const res = await fetch('/api/historial/registro', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hora, activo, cambio, impactos })
