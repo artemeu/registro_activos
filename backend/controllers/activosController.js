@@ -2,47 +2,65 @@ import { getDB } from '../mongo.js';
 
 /**
  * GET /api/activos
- * Obtiene la lista de activos desde la base de datos.
- * Devuelve un array con los nombres de todos los activos registrados.
- * Ejemplo de respuesta: ["Bitcoin", "Ethereum", "USDT"]
+ * 
+ * Función que maneja la ruta para obtener la lista de todos los activos.
+ * - Conecta a la base de datos MongoDB.
+ * - Consulta todos los documentos de la colección 'activos'.
+ * - Devuelve un array con solo los nombres de los activos.
+ * 
+ * Ejemplo de respuesta JSON:
+ * ["Bitcoin", "Ethereum", "USDT"]
  */
 export async function getActivos(req, res) {
     try {
-        // Obtiene la conexión a la base de datos
+        // Obtener la instancia de la base de datos
         const db = getDB();
-        // Busca todos los documentos en la colección 'activos'
+
+        // Buscar todos los documentos en la colección 'activos'
         const activosDocs = await db.collection('activos').find().toArray();
-        // Extrae solo el campo 'nombre' de cada documento
+
+        // Extraer solo el campo 'nombre' de cada documento
         const activos = activosDocs.map(a => a.nombre);
-        // Devuelve el array de nombres como respuesta JSON
+
+        // Enviar como respuesta JSON el array de nombres
         res.json(activos);
     } catch (err) {
-        // Si ocurre un error, responde con status 500 y el mensaje de error
+        // Captura de errores: responder con status 500 y mensaje
         res.status(500).json({ error: err.message });
     }
 }
 
 /**
  * POST /api/activos
- * Crea un nuevo activo en la base de datos.
- * Espera recibir en el body un objeto con el campo 'nombre'.
- * Ejemplo de body: { "nombre": "Bitcoin" }
+ * 
+ * Función que maneja la ruta para crear un nuevo activo en la base de datos.
+ * - Recibe en el body del request un objeto con el campo 'nombre'.
+ * - Valida que el campo exista.
+ * - Inserta el nuevo activo en la colección 'activos'.
+ * - Devuelve confirmación de éxito o error.
+ * 
+ * Ejemplo de body esperado:
+ * { "nombre": "Bitcoin" }
  */
 export async function createActivo(req, res) {
     const { nombre } = req.body;
-    // Valida que se haya enviado el nombre
+
+    // Validación: si no se envía 'nombre', responder con error 400
     if (!nombre) {
         return res.status(400).json({ error: 'Falta el nombre' });
     }
+
     try {
-        // Obtiene la conexión a la base de datos
+        // Obtener la instancia de la base de datos
         const db = getDB();
-        // Inserta el nuevo activo en la colección 'activos'
+
+        // Insertar un nuevo documento en la colección 'activos'
         await db.collection('activos').insertOne({ nombre });
-        // Devuelve confirmación de éxito
+
+        // Responder con confirmación de éxito
         res.json({ ok: true });
     } catch (err) {
-        // Si ocurre un error, responde con status 500 y el mensaje de error
+        // Captura de errores: responder con status 500 y mensaje
         res.status(500).json({ error: err.message });
     }
 }

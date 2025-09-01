@@ -1,7 +1,9 @@
 /**
  * Script principal para la página de simulador (index.html).
- * Permite seleccionar un activo, una hora (solo cada 30 minutos), un evento y registrar el cambio.
- * También muestra la tabla de historial de cambios.
+ * Permite:
+ *  - Seleccionar un activo, una hora (solo cada 30 minutos), un evento y registrar el cambio.
+ *  - Mostrar una tabla de historial de cambios con flechas verdes (sube) o rojas (baja).
+ *  - Aplicar automáticamente los impactos relacionados según el comportamiento seleccionado.
  */
 
 // =======================
@@ -31,8 +33,9 @@ function crearOption(text) {
 }
 
 /**
- * Llena los selects (dropdowns) del formulario con los datos actuales de activos y eventos.
- * Llama a esta función después de cargar activos y comportamientos.
+ * Llena los selects del formulario con los datos actuales de activos y eventos.
+ * - Activos: se cargan en el select de "activo"
+ * - Eventos: se cargan en el select de "palabraClave" a partir de COMPORTAMIENTOS
  */
 function llenarSelects() {
   const selectActivo = document.getElementById('activo');
@@ -48,18 +51,20 @@ function llenarSelects() {
 }
 
 /**
- * Genera un array con las 48 medias horas (30 minutos) de un día completo,
- * partiendo desde la medianoche del día actual.
+ * Genera un array con las 48 medias horas (cada 30 minutos) de un día completo.
  * Formato ISO parcial: "YYYY-MM-DDTHH:mm"
+ * Esto se usa para:
+ *  - Llenar el select de horas
+ *  - Generar las columnas de la tabla de historial
  * @returns {string[]} Array de strings con las horas
  */
 function generarHoras() {
   const horas = [];
   const start = new Date();
-  start.setHours(0, 0, 0, 0); // Medianoche
+  start.setHours(0, 0, 0, 0); // Empieza a medianoche
 
   for (let i = 0; i < 48; i++) {
-    const hora = new Date(start.getTime() + i * 30 * 60000);
+    const hora = new Date(start.getTime() + i * 30 * 60000); // Cada 30 min
     const yy = hora.getFullYear();
     const mm = String(hora.getMonth() + 1).padStart(2, '0');
     const dd = String(hora.getDate()).padStart(2, '0');
@@ -71,11 +76,11 @@ function generarHoras() {
   return horas;
 }
 
-// Guarda las 48 medias horas para reutilizar en la tabla y el select de horas
+// Guardamos las 48 medias horas para reutilizar en la tabla y el select de horas
 const todasLasHoras = generarHoras();
 
 /**
- * Llena el select de horas con solo medias horas (cada 30 minutos).
+ * Llena el select de horas con solo medias horas.
  * Así el usuario solo puede elegir horarios válidos.
  */
 function llenarHorasSelect() {
@@ -85,20 +90,20 @@ function llenarHorasSelect() {
   todasLasHoras.forEach(h => {
     const opt = document.createElement('option');
     opt.value = h;
-    opt.textContent = h.slice(11, 16); // Solo muestra "HH:mm"
+    opt.textContent = h.slice(11, 16); // Solo "HH:mm" para mostrar en el select
     selectHora.appendChild(opt);
   });
 }
 
 /**
- * Carga el historial completo desde el backend y renderiza la tabla.
- * Actualiza la variable global 'historial'.
+ * Carga el historial completo desde el backend.
+ * Actualiza la variable global 'historial' y renderiza la tabla de historial.
  */
 async function cargarDesdeServidor() {
   try {
     const res = await fetch('/api/historial');
     if (!res.ok) throw new Error(res.statusText);
-    historial = await res.json();
+    historial = await res.json(); // historial[hora][activo] = 'Sube' | 'Baja'
     renderizarTabla();
   } catch (err) {
     console.error('Error cargando historial:', err);
@@ -108,51 +113,52 @@ async function cargarDesdeServidor() {
 }
 
 /**
- * Registra un nuevo cambio (evento) con sus impactos relacionados,
- * enviando los datos al backend y actualizando el historial en la UI.
- * Se ejecuta al hacer clic en el botón de registrar.
+ * Registra un nuevo cambio en el sistema, aplicando impactos del comportamiento.
+ * Envía al backend un objeto con todos los cambios: activo principal + impactos relacionados.
  */
 async function registrarConImpactosDesdeJson() {
-  // Obtiene elementos del formulario
   const activoEl = document.getElementById("activo");
   const horaEl = document.getElementById("hora");
   const palabraClaveEl = document.getElementById("palabraClave");
   const cambioEl = document.getElementById("cambio");
 
-  // Valida existencia de elementos
   if (!activoEl || !horaEl || !palabraClaveEl || !cambioEl) {
     alert("Elementos del formulario no encontrados");
     return;
   }
 
-  // Obtiene valores ingresados por el usuario
-  const activo = activoEl.value;
-  const hora = horaEl.value;
-  const palabraClave = palabraClaveEl.value;
-  const cambio = cambioEl.value;
+  const activo = activoEl.value;           // Activo principal seleccionado
+  const hora = horaEl.value;               // Hora seleccionada
+  const palabraClave = palabraClaveEl.value; // Evento/comportamiento seleccionado
+  const cambio = cambioEl.value;           // "Sube" o "Baja"
 
-  // Valida que todos los campos estén completos
   if (!activo || !hora || !palabraClave || !cambio) {
     alert("Completa todos los campos.");
     return;
   }
 
-  // Obtiene impactos relacionados (cambios en otros activos) según palabra clave, activo y tipo de cambio
-  // Ejemplo: COMPORTAMIENTOS["Rumor"]["Bitcoin"]["Sube"] -> { "Ethereum": "Baja" }
-  const impactos = COMPORTAMIENTOS[palabraClave]?.[activo]?.[cambio] || null;
+  // ========================
+  // Obtenemos los impactos según el comportamiento seleccionado
+  // - COMPORTAMIENTOS[evento][activo] = { tipoPrincipal, Sube: {...}, Baja: {...} }
+  // - Se combinan todas las subas y bajas para enviarlas al backend
+  // ========================
+  const comportamiento = COMPORTAMIENTOS[palabraClave]?.[activo] || {};
+  const impactos = { ...comportamiento.Sube, ...comportamiento.Baja }; // Todos los activos afectados
+  const cambios = { [activo]: cambio, ...impactos };                   // Incluye activo principal
 
   try {
-    // Envía POST al backend para registrar el cambio y sus impactos
     const res = await fetch('/api/historial/registro', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hora, activo, cambio, impactos })
+      body: JSON.stringify({ hora, cambios })
     });
+
     if (!res.ok) throw new Error(await res.text());
 
-    // Actualiza el historial con la respuesta del servidor
     const data = await res.json();
+    // Actualiza la variable global con el historial completo retornado por el backend
     historial = data.historial;
+
     renderizarTabla();
   } catch (err) {
     console.error('Error guardando registro:', err);
@@ -162,31 +168,31 @@ async function registrarConImpactosDesdeJson() {
 
 /**
  * Renderiza la tabla completa con el historial actual.
- * Muestra los activos como filas y las medias horas como columnas.
- * Usa flechas verdes para "Sube", rojas para "Baja" y vacío si no hay cambio.
+ * - Filas: activos
+ * - Columnas: medias horas
+ * - Flechas verdes = "Sube", rojas = "Baja", vacío si no hay cambio
  */
 function renderizarTabla() {
   const container = document.getElementById("tablaContainer");
   if (!container) return;
 
   container.innerHTML = "";
-
   const table = document.createElement("table");
   table.className = 'table table-striped table-bordered table-hover table-sm';
 
-  // Cabecera con "Activo / Hora" y luego las 48 medias horas
+  // ========================
+  // Cabecera: primera columna = Activo / Hora, resto = medias horas
+  // ========================
   const thead = document.createElement('thead');
   const headerRow = document.createElement("tr");
-
   const th0 = document.createElement('th');
   th0.textContent = "Activo / Hora";
   th0.className = 'py-1 px-2 fs-6 text-nowrap';
   headerRow.appendChild(th0);
 
-  // Crea una columna para cada media hora, mostrando solo la hora y minutos
   todasLasHoras.forEach(h => {
     const th = document.createElement('th');
-    th.textContent = h.slice(11, 16);  // Solo muestra "HH:mm"
+    th.textContent = h.slice(11, 16); // Solo HH:mm
     th.className = 'py-1 px-2 fs-6 text-nowrap';
     headerRow.appendChild(th);
   });
@@ -194,27 +200,30 @@ function renderizarTabla() {
   thead.appendChild(headerRow);
   table.appendChild(thead);
 
-  // Cuerpo de tabla: filas con activos y sus cambios por media hora
+  // ========================
+  // Cuerpo de la tabla
+  // Cada fila = un activo
+  // Cada columna = estado del activo a esa hora ("Sube", "Baja", "")
+  // ========================
   const tbody = document.createElement('tbody');
-
   activos.forEach(activo => {
     const row = document.createElement("tr");
 
-    // Columna con nombre del activo
+    // Columna con el nombre del activo
     const tdActivo = document.createElement('td');
     tdActivo.textContent = activo;
     tdActivo.className = 'py-1 px-2 fs-6 text-nowrap';
     row.appendChild(tdActivo);
 
-    // Columnas con flechas según cambio (Sube / Baja / sin cambio)
+    // Columnas con flechas según el historial
     todasLasHoras.forEach(h => {
       const td = document.createElement('td');
       const cambio = historial[h]?.[activo] || "";
       const flecha = cambio === "Sube"
-        ? "<span class='text-success'>&#9650;</span>"  // Flecha arriba verde
+        ? "<span class='text-success'>&#9650;</span>"
         : cambio === "Baja"
-          ? "<span class='text-danger'>&#9660;</span>" // Flecha abajo roja
-          : "";                                        // Vacío si sin cambio
+          ? "<span class='text-danger'>&#9660;</span>"
+          : "";
       td.innerHTML = flecha;
       td.className = 'py-1 px-2 fs-6 text-nowrap text-center align-middle';
       row.appendChild(td);
@@ -228,24 +237,21 @@ function renderizarTabla() {
 }
 
 /**
- * Carga datos iniciales: activos y comportamientos desde backend.
+ * Carga datos iniciales desde el backend: activos y comportamientos.
  * Luego llena los selects del formulario.
  */
 async function cargarDatosIniciales() {
   try {
-    // Carga activos
     const resActivos = await fetch('/api/activos');
     if (!resActivos.ok) throw new Error('Error cargando activos');
     activos = await resActivos.json();
 
-    // Carga comportamientos
     const resComport = await fetch('/api/comportamientos');
     if (!resComport.ok) throw new Error('Error cargando comportamientos');
     COMPORTAMIENTOS = await resComport.json();
 
-    // Llena los selects del formulario con los datos recibidos
+    // Llenar selects con los datos cargados
     llenarSelects();
-
   } catch (e) {
     alert('Error cargando datos iniciales desde servidor: ' + e.message);
     activos = [];
@@ -257,20 +263,12 @@ async function cargarDatosIniciales() {
 // =======================
 // Inicialización al cargar la página
 // =======================
-
-/**
- * Cuando el DOM esté listo, carga datos iniciales, historial y configura el botón para registrar eventos.
- * - Llena los selects de activos, eventos y horas.
- * - Carga el historial y lo muestra en la tabla.
- * - Asocia la función de registro al botón correspondiente.
- */
 window.addEventListener('DOMContentLoaded', async () => {
-  await cargarDatosIniciales();  // Activos y comportamientos
-  await cargarDesdeServidor();   // Historial para la tabla
+  await cargarDatosIniciales();  // Carga activos y comportamientos
+  await cargarDesdeServidor();   // Carga historial y renderiza la tabla
+  llenarHorasSelect();           // Llena el select de horas
 
-  llenarHorasSelect(); // Llena el select de horas con medias horas
-
-  // Asocia función al botón para registrar nuevos cambios
+  // Asociamos la función de registro al botón "Registrar"
   const btnRegistrar = document.getElementById('btnRegistrar');
   if (btnRegistrar) {
     btnRegistrar.addEventListener('click', registrarConImpactosDesdeJson);

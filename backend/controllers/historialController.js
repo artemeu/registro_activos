@@ -2,9 +2,15 @@ import { getDB } from '../mongo.js';
 
 /**
  * GET /api/historial
- * Devuelve el historial completo de cambios agrupado por hora y activo.
- * La respuesta es un objeto donde cada clave es una hora (formato ISO) y el valor es otro objeto
- * con los activos y su cambio en ese momento.
+ * 
+ * Función que devuelve el historial completo de cambios, agrupado por hora y por activo.
+ * - Conecta a la base de datos MongoDB.
+ * - Recupera todos los documentos de la colección 'historial'.
+ * - Cada documento representa un cambio para un activo en un momento específico.
+ * - Construye un objeto donde:
+ *   - La clave superior es la hora (formato ISO, ej. "2024-08-29T14:00").
+ *   - El valor es un objeto con activos y su cambio correspondiente ("Sube"/"Baja").
+ * 
  * Ejemplo de respuesta:
  * {
  *   "2024-08-29T14:00": { "Bitcoin": "Sube", "Ethereum": "Baja" },
@@ -13,82 +19,77 @@ import { getDB } from '../mongo.js';
  */
 export async function getHistorial(req, res) {
     try {
-        // Obtiene la conexión a la base de datos
+        // Obtener conexión a la base de datos
         const db = getDB();
-        // Busca todos los documentos en la colección 'historial'
+
+        // Obtener todos los documentos de la colección 'historial'
         const coleccion = db.collection('historial');
         const documentos = await coleccion.find().toArray();
-        // Reorganiza los datos en un objeto agrupado por hora y activo
+
+        // Reorganizar los datos en un objeto agrupado por hora y activo
         const historialObj = {};
         documentos.forEach(doc => {
             if (!historialObj[doc.hora]) historialObj[doc.hora] = {};
             historialObj[doc.hora][doc.activo] = doc.cambio;
         });
-        // Devuelve el historial como respuesta JSON
+
+        // Devolver el historial como respuesta JSON
         res.json(historialObj);
     } catch (err) {
-        // Si ocurre un error, responde con status 500 y el mensaje de error
+        // Manejo de errores: responder con status 500 y mensaje de error
         res.status(500).json({ error: err.message });
     }
 }
 
 /**
  * POST /api/historial/registro
- * Registra un cambio en el historial para un activo y hora determinados.
- * También puede registrar impactos (cambios en otros activos afectados por el evento principal).
- * Espera recibir en el body: hora (string), activo (string), cambio (string), impactos (objeto opcional)
- * Ejemplo de body:
- * {
- *   "hora": "2024-08-29T14:00",
- *   "activo": "Bitcoin",
- *   "cambio": "Sube",
- *   "impactos": { "Ethereum": "Baja" }
- * }
- * Devuelve el historial actualizado.
+ * 
+ * Función que registra cambios en el historial.
+ * - Puede registrar múltiples cambios a la vez (activo principal + impactos).
+ * - Recibe en el body:
+ *   - hora: string con la hora del cambio (ej. "2024-08-29T14:00")
+ *   - cambios: objeto con clave = activo, valor = cambio ("Sube" o "Baja")
+ *     Ejemplo: { "Bitcoin": "Sube", "Ethereum": "Baja" }
+ * - Utiliza operaciones bulkWrite para insertar o actualizar todos los cambios de manera eficiente.
+ * - Devuelve el historial completo actualizado.
  */
 export async function registrarCambio(req, res) {
-    const { hora, activo, cambio, impactos } = req.body;
-    // Validación básica: todos los campos principales deben estar presentes
-    if (!hora || !activo || !cambio) {
-        return res.status(400).json({ error: 'Faltan campos hora/activo/cambio' });
+    const { hora, cambios } = req.body;
+
+    // Validación: verificar que existan hora y cambios
+    if (!hora || !cambios || typeof cambios !== 'object') {
+        return res.status(400).json({ error: 'Faltan campos hora o cambios' });
     }
+
     try {
-        // Obtiene la conexión a la base de datos
         const db = getDB();
         const coleccion = db.collection('historial');
-        // Inserta o actualiza el registro principal para ese activo y hora
-        await coleccion.updateOne(
-            { hora, activo },
-            { $set: { cambio } },
-            { upsert: true }
-        );
-        // Si hay impactos (otros activos afectados), actualiza también esos registros en bloque
-        if (impactos && typeof impactos === 'object') {
-            const bulkOps = [];
-            Object.entries(impactos).forEach(([afectado, resultado]) => {
-                bulkOps.push({
-                    updateOne: {
-                        filter: { hora, activo: afectado },
-                        update: { $set: { cambio: resultado } },
-                        upsert: true
-                    }
-                });
-            });
-            if (bulkOps.length > 0) {
-                await coleccion.bulkWrite(bulkOps);
+
+        // Construir operaciones bulk para cada cambio
+        // upsert: true -> si no existe el documento, lo crea
+        const bulkOps = Object.entries(cambios).map(([activo, cambio]) => ({
+            updateOne: {
+                filter: { hora, activo },
+                update: { $set: { cambio } },
+                upsert: true
             }
-        }
-        // Después de guardar, obtiene nuevamente todo el historial actualizado
+        }));
+
+        // Ejecutar las operaciones bulk en la base de datos
+        if (bulkOps.length > 0) await coleccion.bulkWrite(bulkOps);
+
+        // Recuperar nuevamente todo el historial para devolverlo actualizado
         const documentos = await coleccion.find().toArray();
         const historialObj = {};
         documentos.forEach(doc => {
             if (!historialObj[doc.hora]) historialObj[doc.hora] = {};
             historialObj[doc.hora][doc.activo] = doc.cambio;
         });
-        // Devuelve confirmación y el historial actualizado
+
+        // Responder con estado OK y el historial actualizado
         res.json({ ok: true, historial: historialObj });
     } catch (err) {
-        // Si ocurre un error, responde con status 500 y el mensaje de error
+        // Manejo de errores: responder con status 500 y mensaje de error
         res.status(500).json({ error: err.message });
     }
 }
