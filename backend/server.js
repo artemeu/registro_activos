@@ -42,7 +42,6 @@ app.use('/api/historial', historialRoutes);
 // Rutas para servir los archivos HTML principales desde la subcarpeta html
 // Esto permite que al navegar a /crearActivo.html, por ejemplo, se sirva el archivo correcto
 app.get('/', (req, res) => {
-    // Sirve el archivo index.html como página principal
     res.sendFile(path.join(FRONTEND_DIR, 'html', 'index.html'));
 });
 app.get('/crearActivo.html', (req, res) => {
@@ -53,6 +52,9 @@ app.get('/crearComportamiento.html', (req, res) => {
 });
 app.get('/historial.html', (req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, 'html', 'historial.html'));
+});
+app.get('/verComportamientos.html', (req, res) => {
+    res.sendFile(path.join(FRONTEND_DIR, 'html', 'verComportamientos.html'));
 });
 
 // Conecta a MongoDB y arranca el servidor solo si la conexión es exitosa

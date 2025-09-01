@@ -7,7 +7,6 @@ let activos = [];
 
 /**
  * Carga la lista de activos desde el backend y llena el select de activos principales.
- * Esto permite que el usuario elija sobre qué activo principal crear el comportamiento.
  */
 async function cargarActivos() {
   const res = await fetch('/api/activos');
@@ -23,9 +22,7 @@ async function cargarActivos() {
 cargarActivos();
 
 /**
- * Muestra los selects para elegir el efecto sobre los otros activos,
- * solo después de seleccionar el activo principal y si sube o baja.
- * Por cada activo distinto al principal, permite elegir si "Sube", "Baja" o "Sin efecto".
+ * Muestra los selects para elegir el efecto sobre los otros activos.
  */
 function mostrarImpactos() {
   const tipo = document.getElementById('tipoCambio').value;
@@ -33,7 +30,6 @@ function mostrarImpactos() {
   const impactosDiv = document.getElementById('impactos');
   impactosDiv.innerHTML = '';
   if (tipo && principal) {
-    // Muestra solo los activos distintos al principal
     activos.filter(a => a !== principal).forEach(a => {
       impactosDiv.innerHTML += `
         <div class="row mb-2">
@@ -56,7 +52,7 @@ function mostrarImpactos() {
   }
 }
 
-// Reinicia los impactos y el resumen si cambia el activo principal
+// Eventos para reiniciar impactos y resumen
 document.getElementById('tipoCambio').addEventListener('change', mostrarImpactos);
 document.getElementById('activoPrincipal').addEventListener('change', () => {
   document.getElementById('tipoCambio').value = '';
@@ -65,7 +61,7 @@ document.getElementById('activoPrincipal').addEventListener('change', () => {
   document.getElementById('resumenPrincipal').innerHTML = '';
 });
 
-// Muestra un resumen visual del activo principal y su efecto (sube/baja)
+// Resumen visual del activo principal
 document.getElementById('tipoCambio').addEventListener('change', function() {
   const principal = document.getElementById('activoPrincipal').value;
   const tipo = this.value;
@@ -81,9 +77,7 @@ document.getElementById('activoPrincipal').addEventListener('change', function()
 });
 
 /**
- * Envía el comportamiento creado al backend cuando se envía el formulario.
- * Construye el objeto de datos con el evento, el activo principal, el tipo de cambio y los impactos.
- * Si la petición es exitosa, muestra un mensaje y resetea el formulario.
+ * Envía el comportamiento al backend separando correctamente Sube y Baja.
  */
 document.getElementById('formComportamiento').onsubmit = async (e) => {
   e.preventDefault();
@@ -91,31 +85,37 @@ document.getElementById('formComportamiento').onsubmit = async (e) => {
   const activoPrincipal = document.getElementById('activoPrincipal').value;
   const tipoCambio = document.getElementById('tipoCambio').value;
 
-  // Obtiene los activos afectados y su efecto
-  const impactos = {};
+  // Separar impactos en Sube y Baja
+  const impactosSube = {};
+  const impactosBaja = {};
+
   document.querySelectorAll('.impacto-efecto').forEach(sel => {
-    if (sel.value) {
-      impactos[sel.dataset.activo] = sel.value;
+    if (sel.value === 'Sube') {
+      impactosSube[sel.dataset.activo] = 'Sube';
+    } else if (sel.value === 'Baja') {
+      impactosBaja[sel.dataset.activo] = 'Baja';
     }
   });
 
-  // Construye el objeto de datos para enviar al backend
-  // Estructura: { evento, datos: { [activoPrincipal]: { [tipoCambio]: { ...impactos } } } }
+  // Construir objeto de datos correctamente
   const datos = {
     evento,
     datos: {
       [activoPrincipal]: {
-        [tipoCambio]: impactos
+        tipoPrincipal: tipoCambio, // Estado del activo principal
+        ...(Object.keys(impactosSube).length ? { Sube: impactosSube } : {}),
+        ...(Object.keys(impactosBaja).length ? { Baja: impactosBaja } : {})
       }
     }
   };
 
-  // Envía la petición POST al backend
+  // Enviar al backend
   const res = await fetch('/api/comportamientos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(datos)
   });
+
   const mensaje = document.getElementById('mensaje');
   if (res.ok) {
     mensaje.textContent = 'Comportamiento creado correctamente';
